@@ -33,7 +33,6 @@ module SidekiqAlive
       end
     end
       
-    end
     def hostname_registered?(hostname)
       SidekiqAlive.registered_instances.any? do |ri|
         /#{hostname}/ =~ ri
