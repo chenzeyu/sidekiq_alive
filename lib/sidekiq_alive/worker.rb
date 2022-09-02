@@ -9,12 +9,31 @@ module SidekiqAlive
       # Checks if custom liveness probe passes should fail or return false
       return unless config.custom_liveness_probe.call
 
+      # Remove Zombie Queues
+      remove_zombie_queues
+      
       # Writes the liveness in Redis
       write_living_probe
       # schedules next living probe
       self.class.perform_in(config.time_to_live / 2, current_hostname)
     end
 
+    def remove_zombie_queues
+      queues = Sidekiq::Queue.all
+
+      queues.each do |queue|
+        next unless queue.name.starts_with? 'sidekiq_alive-'
+
+        registered_queues = SidekiqAlive.registered_instances.map { |i| "sidekiq_alive-#{i.split('::')[1]}" }
+
+        next if registered_queues.include? queue.name
+
+        Rails.logger.debug "Clearing SidekiqAlive zombine queue #{queue.name}"
+        queue.clear
+      end
+    end
+      
+    end
     def hostname_registered?(hostname)
       SidekiqAlive.registered_instances.any? do |ri|
         /#{hostname}/ =~ ri
